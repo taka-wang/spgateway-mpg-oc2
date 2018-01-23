@@ -26,10 +26,12 @@ class ControllerPaymentSpgatewayMPG extends Controller {
 
         if (file_exists(DIR_TEMPLATE . $this->config->get('config_template') . '/template/payment/SpgatewayMPG.tpl')) {
             $this->template = $this->config->get('config_template') . '/template/payment/SpgatewayMPG.tpl';
-        } else {
-            $this->template = 'default/template/payment/SpgatewayMPG.tpl';
+        }else if(file_exists(DIR_TEMPLATE .'default/template/payment/SpgatewayMPG.tpl')){
+            $this->template = 'payment/SpgatewayMPG.tpl';//for 2.2版
+        }else {
+            $this->template = 'default/template/payment/SpgatewayMPG.tpl';//for 2.1版以前
         }
-        $this->cart->clear();
+        //$this->cart->clear();
         return $this->load->view($this->template, $data);
     }
 
@@ -139,7 +141,7 @@ class ControllerPaymentSpgatewayMPG extends Controller {
 
         ksort($sortArray);
 
-        $check_merstr = http_build_query($sortArray, '', '&');
+        $check_merstr = http_build_query($sortArray);
 
         $checkValue_str = 'HashKey=' . $this->hashKey . '&' . $check_merstr . '&HashIV=' . $this->hashIV;
 
@@ -226,13 +228,15 @@ class ControllerPaymentSpgatewayMPG extends Controller {
 
             //訂單成功後，購物車清空
             if (in_array($result['Status'], array('SUCCESS', 'CUSTOM'))) {
-                $this->clearCustomerCart($this->customer->getId());
+                $this->cart->clear();
             }
 
             if (file_exists(DIR_TEMPLATE . $this->config->get('config_template') . '/template/common/success.tpl')) {
                 $this->template = $this->config->get('config_template') . '/template/common/success.tpl';
-            } else {
-                $this->template = 'default/template/common/success.tpl';
+            }else if(file_exists(DIR_TEMPLATE .'default/template/common/success.tpl')){
+                $this->template = 'common/success.tpl';//for2.2版
+            }else {
+                $this->template = 'default/template/common/success.tpl'; //for2.1版
             }
 
             $data['column_left'] = $this->load->controller('common/column_left');
@@ -302,7 +306,7 @@ class ControllerPaymentSpgatewayMPG extends Controller {
 
                     ksort($check);
 
-                    $check_str = http_build_query($check, '', '&');
+                    $check_str = http_build_query($check);
 
                     /**
                      * 是否有設定參數
@@ -352,7 +356,7 @@ class ControllerPaymentSpgatewayMPG extends Controller {
 
                 // 修改訂單狀態 (Only Credit or WebAtm)
                 if (in_array($result['PaymentType'], array('CREDIT', 'WEBATM'))) {
-                    $this->_updateOrder($order_info, $result, $store_info);
+                    $this->cart->clear();
                 }
 
                 fclose($fp);
@@ -383,9 +387,9 @@ class ControllerPaymentSpgatewayMPG extends Controller {
         // 訂單備註
         $comment = (in_array($result['Status'], array('SUCCESS', 'CUSTOM'))) ? $this->_getComment($result) : $this->_getComment($result) . '錯誤訊息: ' . $result['Message'];
 
-        $this->db->query("UPDATE `" . DB_PREFIX . "order` SET order_status_id = '" . $order_status_id . "', date_modified = NOW() WHERE order_id = '" . $order_id . "'");
+	// Follow MVC architecture, fix quantity subtraction function
+        $this->model_checkout_order->addOrderHistory($order_id, $order_status_id, $comment);
 
-        $this->db->query("INSERT INTO " . DB_PREFIX . "order_history SET order_id = '" . $order_id . "', order_status_id = '" . $order_status_id . "', notify = '1', comment = '" . $this->db->escape($comment) . "', date_added = NOW()");
     }
 
     /**
