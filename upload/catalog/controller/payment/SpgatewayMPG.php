@@ -260,7 +260,7 @@ class ControllerPaymentSpgatewayMPG extends Controller {
     public function feedback() {
 
         // 取時間做檔名 (YYYYMMDD)
-        $file_name = date('Ymd', time()) . '.txt';
+        $file_name = 'spgateway' . date('Ymd', time()) . '.txt';
 
         // 檔案路徑
         $file = DIR_LOGS . $file_name;
@@ -288,82 +288,93 @@ class ControllerPaymentSpgatewayMPG extends Controller {
 
             $store_info = $this->model_setting_setting->getSetting('SpgatewayMPG', $order_info['store_id']);
 
-            // 1. 檢查交易狀態
-            if (in_array($result['Status'], array('SUCCESS', 'CUSTOM'))) {
 
-                // 2. 檢查交易總金額
-                if (intval($order_info['total']) == $result['Amt']) {
+            // 檢查交易總金額
+            if (intval($order_info['total']) == $result['Amt']) {
 
-                    /**
-                     *  3. 檢查 checkCode
-                     */
-                    $check = array(
-                        "MerchantID" => $result['MerchantID'],
-                        "Amt" => $result['Amt'],
-                        "MerchantOrderNo" => $result['MerchantOrderNo'],
-                        "TradeNo" => $result['TradeNo']
-                    );
+                /**
+                 *  檢查 checkCode
+                 */
+                $check = array(
+                    "MerchantID" => $result['MerchantID'],
+                    "Amt" => $result['Amt'],
+                    "MerchantOrderNo" => $result['MerchantOrderNo'],
+                    "TradeNo" => $result['TradeNo']
+                );
 
-                    ksort($check);
+                ksort($check);
 
-                    $check_str = http_build_query($check);
+                $check_str = http_build_query($check);
 
-                    /**
-                     * 是否有設定參數
-                     */
-                    $checkCode = '';
+                /**
+                 * 是否有設定參數
+                 */
+                $checkCode = '';
 
-                    if (!isset($store_info['SpgatewayMPG_hash_key']) || !isset($store_info['SpgatewayMPG_hash_iv'])) {
-                        $content = $result['MerchantOrderNo'] . ': Hash Setting Errpr';
-                        fwrite($fp, $content . "\n");
-                        fclose($fp);
-                        echo $content;
-                        die;
-                    } else {
-                        $checkCode = 'HashIV=' . $store_info['SpgatewayMPG_hash_iv'] . '&' . $check_str . '&HashKey=' . $store_info['SpgatewayMPG_hash_key'];
-                    }
+                if (!isset($store_info['SpgatewayMPG_hash_key']) || !isset($store_info['SpgatewayMPG_hash_iv'])) {
+                    $content = '訂單編號＃'. $result['MerchantOrderNo'] . ': Hash Setting Error';
+                    fwrite($fp, $content . "\n");
+                    fclose($fp);
+                    echo $content;
+                    die;
+                } else {
+                    $checkCode = 'HashIV=' . $store_info['SpgatewayMPG_hash_iv'] . '&' . $check_str . '&HashKey=' . $store_info['SpgatewayMPG_hash_key'];
+                }
 
-                    $checkCode = strtoupper(hash("sha256", $checkCode));
+                $checkCode = strtoupper(hash("sha256", $checkCode));
 
-                    // 如果三次驗證都通過
-                    if ($checkCode == $result['CheckCode']) {
+                // 檢查驗證碼
+                if ($checkCode == $result['CheckCode']) {
+
+                    // 狀態：成功或者CUSTOM
+                    if (in_array($result['Status'], array('SUCCESS', 'CUSTOM'))) {
 
                         if ($order_info['order_status_id'] != $store_info['SpgatewayMPG_order_finish_status_id']) {
-
-                            // 修改訂單狀態
+                            // 修改訂單狀態為成功
                             $this->_updateOrder($order_info, $result, $store_info);
+                        } else {
+                            // 狀態已經是成功，不修改
+                            $content = '訂單編號#'. $result['MerchantOrderNo'] . ': 重複成功';
+                            fwrite($fp, $content . "\n");
+                            fclose($fp);
+                            echo $content;
+                            die;
                         }
+                    // 狀態：失敗
                     } else {
-                        $content = $result['MerchantOrderNo'] . ': ERROR_3';
-                        fwrite($fp, $content . "\n");
-                        fclose($fp);
+                        // 修改訂單狀態為失敗
+                        $this->_updateOrder($order_info, $result, $store_info);
+
+                        // 回寫到錯誤日誌
+                        $content = '訂單編號#'. $result['MerchantOrderNo'] . ': 狀態異常';
                         echo $content;
+
+                        fwrite($fp, $content . "\n");
+
+                        // 修改訂單狀態 (Only Credit or WebAtm)
+                        if (in_array($result['PaymentType'], array('CREDIT', 'WEBATM'))) {
+                            $this->cart->clear();
+                        }
+
+                        fclose($fp);
                         die;
                     }
                 } else {
-                    $content = $result['MerchantOrderNo'] . ': ERROR_2';
+                    $content = '訂單編號#'. $result['MerchantOrderNo'] . ': 驗證碼異常';
                     fwrite($fp, $content . "\n");
                     fclose($fp);
                     echo $content;
                     die;
                 }
             } else {
-
-                $content = $result['MerchantOrderNo'] . ': ERROR_1';
-                echo $content;
-
+                $content = '訂單編號#'. $result['MerchantOrderNo'] . ': 交易總金額異常';
                 fwrite($fp, $content . "\n");
-
-                // 修改訂單狀態 (Only Credit or WebAtm)
-                if (in_array($result['PaymentType'], array('CREDIT', 'WEBATM'))) {
-                    $this->cart->clear();
-                }
-
                 fclose($fp);
+                echo $content;
                 die;
             }
         } else {
-            fwrite($fp, $result['MerchantOrderNo'] . ": DataError\n");
+            fwrite($fp, '訂單編號#'. $result['MerchantOrderNo'] . ": 主機回傳資料錯誤\n");
         }
 
         fclose($fp);
@@ -385,9 +396,9 @@ class ControllerPaymentSpgatewayMPG extends Controller {
         $order_status_id = in_array($result['Status'], array('SUCCESS', 'CUSTOM')) ? (int) $store_info['SpgatewayMPG_order_finish_status_id'] : (int) $store_info['SpgatewayMPG_order_fail_status_id'];
 
         // 訂單備註
-        $comment = (in_array($result['Status'], array('SUCCESS', 'CUSTOM'))) ? $this->_getComment($result) : $this->_getComment($result) . '錯誤訊息: ' . $result['Message'];
+        $comment = (in_array($result['Status'], array('SUCCESS', 'CUSTOM'))) ? $this->_getComment($result) : '<font color="red">錯誤訊息: ' . $result['Message'] . '</font><br />' . $this->_getComment($result);
 
-	// Follow MVC architecture, fix quantity subtraction function
+	    // Follow MVC architecture, fix quantity subtraction function
         $this->model_checkout_order->addOrderHistory($order_id, $order_status_id, $comment);
 
     }
@@ -462,11 +473,6 @@ class ControllerPaymentSpgatewayMPG extends Controller {
         }
 
         return $result;
-    }
-
-    public function clearCustomerCart($customer_id) {
-        $this->db->query("UPDATE `" . DB_PREFIX . "customer` SET cart = '' WHERE customer_id = '" . (int) $customer_id . "'");
-        unset($this->session->data['customer_id']);
     }
 
 }
