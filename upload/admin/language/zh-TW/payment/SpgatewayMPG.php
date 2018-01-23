@@ -3,6 +3,8 @@
 // Heading
 $_['heading_title'] = 'Spgateway';
 
+$_['text_SpgatewayMPG'] = '<a href="https://www.spgateway.com/" target="_blank"><img src="view/image/payment/spgateway.png" style="border: 1px solid #EEEEEE;" /></a>';
+
 // Text 
 $_['text_success'] = '修改成功!';
 $_['text_payment'] = '付款(Payment)';
