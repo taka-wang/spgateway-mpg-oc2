@@ -8,3 +8,8 @@
 - 修正交易成功無法扣庫存問題
 - 新增智付通圖示於管理介面
 - 修改失敗交易流程(後台紀錄更新)
+- 支援 MPG 1.4 API
+
+## 如何安裝
+
+將 `install.xml` 與 `upload資料夾` 壓縮成 `anyfilename.ocmod.zip` 即可從OC後台上傳使用

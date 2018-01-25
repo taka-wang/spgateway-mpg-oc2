@@ -8,8 +8,6 @@ class ModelPaymentSpgatewayMPG extends Model {
         		
         $this->load->language('payment/SpgatewayMPG');
 		
-		$language = $this->language->get('code');
-		
         $sql  = "SELECT * FROM " . DB_PREFIX . "zone_to_geo_zone WHERE";
         $sql .= " geo_zone_id = '" . (int)$this->config->get('SpgatewayMPG_geo_zone_id') . "'";
         $sql .= " AND country_id = '" . (int)$address['country_id'] . "'";
@@ -38,20 +36,6 @@ class ModelPaymentSpgatewayMPG extends Model {
             );
 			
 			$method_data["title"] .= "  (" . $this->config->get('SpgatewayMPG_description') . ")";
-			
-			
-			/*
-			if (in_array($language, array("zh-TW", "en"))) {
-			
-				if ($language == "en"  && !empty($this->config->get('SpgatewayMPG_description_1'))) { 
-					$method_data["title"] .= "  (" . $this->config->get('SpgatewayMPG_description_1') . ")";
-				}
-			
-				if ($language == "zh-TW"  && !empty($this->config->get('SpgatewayMPG_description_2'))) {
-					$method_data["title"] .= "  (" . $this->config->get('SpgatewayMPG_description_2') . ")";
-				}
-			}
-			*/
     	}
 		
     	return $method_data;

@@ -1,10 +1,10 @@
 <form action="<?php echo $action; ?>" method="post" id="SpgatewayMPG_Form">
 
-  <h3>請按下方 <font color="#d9534f"><?php echo $button_confirm; ?></font><p></p>
-    <p>選擇您的付款方式</p><p></p>
+  <h3><?php echo $msg1; ?> <font color="#d9534f"><?php echo $button_confirm; ?></font><p></p>
+    <p><?php echo $msg2; ?></p><p></p>
   </h3>
   <p></p>
-  <p>智付通整合式金流（SSL 256bit加密機制）</p>
+  <p><?php echo $msg3; ?></p>
 
     <?php foreach($params as $name => $value){ ?>
 		<input type="hidden" name="<?php echo $name?>" value="<?php echo $value?>">
